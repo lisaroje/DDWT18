@@ -42,14 +42,14 @@ function connect_db($host, $db, $user, $pass){
  * @return bool
  *
  */
-function new_route($route_uri, $request_type){
+function new_route($route_uri, $request_type)
+{
     $route_uri_expl = array_filter(explode('/', $route_uri));
-    $current_path_expl = array_filter(explode('/',parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)));
+    $current_path_expl = array_filter(explode('/', parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)));
     if ($route_uri_expl == $current_path_expl && $_SERVER['REQUEST_METHOD'] == strtoupper($request_type)) {
         return True;
     }
 }
-
 /**
  * Creates a new navigation array item using url and active status
  * @param string $url The url of the navigation item
@@ -94,10 +94,11 @@ function get_breadcrumbs($breadcrumbs) {
 
 /**
  * Creates navigation HTML code using given array
- * @param array $navigation Array with as Key the page name and as Value the corresponding url
+ * @param $template
+ * @param array $active_id with page name and corresponding url
  * @return string html code that represents the navigation
  */
-function get_navigation($navigation){
+function get_navigation($template, $active_id){
     $navigation_exp = '
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <a class="navbar-brand">Series Overview</a>
@@ -106,13 +107,13 @@ function get_navigation($navigation){
     </button>
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
     <ul class="navbar-nav mr-auto">';
-    foreach ($navigation as $name => $info) {
-        if ($info[1]){
+    foreach ($template as $key => $active_id){
+        if ($active_id[1]){
             $navigation_exp .= '<li class="nav-item active">';
-            $navigation_exp .= '<a class="nav-link" href="'.$info[0].'">'.$name.'</a>';
+            $navigation_exp .= '<a class="nav-link" href="'.$active_id[0].'">'.$key.'</a>';
         }else{
             $navigation_exp .= '<li class="nav-item">';
-            $navigation_exp .= '<a class="nav-link" href="'.$info[0].'">'.$name.'</a>';
+            $navigation_exp .= '<a class="nav-link" href="'.$active_id[0].'">'.$key.'</a>';
         }
 
         $navigation_exp .= '</li>';
@@ -136,7 +137,7 @@ function get_serie_table($series){
     <thead
     <tr>
         <th scope="col">Series</th>
-        <th scope="col"></th>
+        <th scope="col">User</th>
     </tr>
     </thead>
     <tbody>';
@@ -144,6 +145,7 @@ function get_serie_table($series){
         $table_exp .= '
         <tr>
             <th scope="row">'.$value['name'].'</th>
+            <th scope="row">'.$value['firstname'].$value['lastname'].'</th>
             <td><a href="/DDWT18/week2/serie/?serie_id='.$value['id'].'" role="button" class="btn btn-primary">More info</a></td>
         </tr>
         ';
@@ -211,6 +213,7 @@ function get_serieinfo($pdo, $serie_id){
  * @return string
  */
 function get_error($feedback){
+    $feedback = json_decode($feedback, True);
     $error_exp = '
         <div class="alert alert-'.$feedback['type'].'" role="alert">
             '.$feedback['message'].'
@@ -258,12 +261,13 @@ function add_serie($pdo, $serie_info){
     }
 
     /* Add Serie */
-    $stmt = $pdo->prepare("INSERT INTO series (name, creator, seasons, abstract) VALUES (?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO series (name, creator, seasons, abstract, user) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([
         $serie_info['Name'],
         $serie_info['Creator'],
         $serie_info['Seasons'],
-        $serie_info['Abstract']
+        $serie_info['Abstract'],
+        $_SESSION['user_id'],
     ]);
     $inserted = $stmt->rowCount();
     if ($inserted ==  1) {
@@ -284,9 +288,14 @@ function add_serie($pdo, $serie_info){
  * Updates a serie in the database using post array
  * @param object $pdo db object
  * @param array $serie_info post array
+ * @return bool
  * @return array
  */
 function update_serie($pdo, $serie_info){
+    /* Check whether user is allowed to remove */
+    if ($_SESSION('user_id') == $serie_info['user']){
+        return True;
+    }
     /* Check if all fields are set */
     if (
         empty($serie_info['Name']) or
@@ -327,12 +336,13 @@ function update_serie($pdo, $serie_info){
     }
 
     /* Update Serie */
-    $stmt = $pdo->prepare("UPDATE series SET name = ?, creator = ?, seasons = ?, abstract = ? WHERE id = ?");
+    $stmt = $pdo->prepare("UPDATE series SET name = ?, creator = ?, seasons = ?, abstract = ?, user = ?, WHERE id = ?");
     $stmt->execute([
         $serie_info['Name'],
         $serie_info['Creator'],
         $serie_info['Seasons'],
         $serie_info['Abstract'],
+        $_SESSION['user_id'],
         $serie_info['serie_id']
     ]);
     $updated = $stmt->rowCount();
@@ -353,12 +363,18 @@ function update_serie($pdo, $serie_info){
 /**
  * Removes a series with a specific series-ID
  * @param object $pdo db object
- * @param int $serie_id id of the to be deleted series
+ * @param int serie_id id from serie
+ * @return bool
  * @return array
  */
 function remove_serie($pdo, $serie_id){
     /* Get series info */
     $serie_info = get_serieinfo($pdo, $serie_id);
+
+    /* Check whether user is allowed to remove */
+    if ($_SESSION['user_id'] == $serie_info['user']){
+        return True;
+    }
 
     /* Delete Serie */
     $stmt = $pdo->prepare("DELETE FROM series WHERE id = ?");
@@ -411,4 +427,176 @@ function get_user_id(){
     } else {
         return False;
     }
+}
+
+/* Returns the first and last name from the user_id.
+* @param $pdo as database object and $user_id as variable
+* @return user_name as variable
+*/
+function get_user_name($pdo, $user_id)
+{
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?');
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch();
+    $user_name = $user['firstname'].' '.$user['lastname'];
+
+    foreach ($user as $key => $value) {
+        $user_name[$key] = htmlspecialchars($value);
+
+    }
+    return $user_name;
+}
+
+
+/**
+ * Count the number of users using series Overview
+ * @param object $pdo database object
+ * @return mixed
+ */
+function count_users($pdo){
+    /* Get series */
+    $stmt = $pdo->prepare('SELECT * FROM users');
+    $stmt->execute();
+    $users = $stmt->rowCount();
+    return $users;
+}
+/**
+ * Register user into the database
+ * @param object $pdo as database object
+ * @param array form_data as post array
+ * @return array with messages
+ */
+function register_user($pdo, $form_data)
+{
+    /* Check if all fields are set */
+    if (
+        empty($form_data['Username']) or
+        empty($form_data['Password']) or
+        empty($form_data['First name']) or
+        empty($form_data['Last name'])
+    ) {
+        return [
+            'type' => 'danger',
+            'message' => 'You should enter a username, password, first name and last name.'
+        ];
+
+    }
+    /* Check if username already exists */
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE username= ?');
+        $stmt->execute([$form_data['username']]);
+        $user_exists = $stmt->rowCount();
+    } catch (\PDOException $e) {
+        return [
+            'type' => 'danger',
+            'message' => sprintf('There was an error: %s', $e->getMessage())
+        ];
+    }
+    if (!empty($user_exists)) {
+        return [
+            'type' => 'danger',
+            'message' => 'The username you entered does already exist!'
+        ];
+    }
+    $password = password_hash($form_data['password'], PASSWORD_DEFAULT);
+
+    try {
+        $stmt = $pdo->prepare('INSERT INTO users (username, password, firstname, lastname) VALUES (?, ?, ?, ?) ');
+        $stmt->execute([$form_data['username'], $password, $form_data['firstname'], $form_data['lastname']]);
+        $user_id = $pdo->lastInsertId();
+    } catch (PDOException $e) {
+        return [
+            'type' => 'danger',
+            'message'=> sprintf('There was an error: %s', $e->getMessage())
+        ];
+    }
+    session_start();
+    $_SESSION['user_id'] = $user_id;
+    $feedback = [
+        'type' => 'success',
+        'message' => sprintf('%s, you account was successfully created!',
+        get_user_name($pdo, $_SESSION['user_id']))
+        ];
+        redirect(sprintf('/DDWT18/week2/myaccount/?error_msg=%s', json_encode($feedback)));
+}
+
+/**
+ * Login user onto the website
+ * @param object $pdo as database object
+ * @param array form_data as post array
+ * @return array with messages
+ */
+function login_user($pdo, $form_data)
+{
+    /* Check if all fields are set */
+    if (
+        empty($form_data['Username']) or
+        empty($form_data['Password'])
+    ) {
+        return [
+            'type' => 'danger',
+            'message' => 'You should enter a username and password'
+        ];
+
+    }
+    /* Check if username already exists */
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM users WHERE username= ?');
+        $stmt->execute([$form_data['username']]);
+        $user_info = $stmt->rowCount();
+    } catch (\PDOException $e) {
+        return [
+            'type' => 'danger',
+            'message' => sprintf('There was an error: %s', $e->getMessage())
+        ];
+    }
+    if (empty($user_info)) {
+        return [
+            'type' => 'danger',
+            'message' => 'The username you entered does not exist!'
+        ];
+    }
+
+    /* Check password */
+    if (!password_verify($form_data['password'], $user_info['password'])) {
+        return [
+            'type' => 'danger',
+            'message' => 'The password you entered is incorrect!'
+        ];
+    } else {
+        session_start();
+        $_SESSION['user_id'] = $user_info['id'];
+        $feedback = [
+            'type' => 'success',
+            'message' => sprintf('%s, you were logged in successfully!', get_user_name($pdo, $_SESSION['user_id']))
+        ];
+        redirect(sprintf('/DDWT18/week2/myaccount/?error_msg=%s', json_encode($feedback)));
+    }
+}
+
+/** Checks if user is logged in
+ * @return bool True or False
+ */
+
+function check_login(){
+    session_start();
+    if (isset($_SESSION['user_id'])) {
+        return True;
+    } else {
+        return False;
+    }
+}
+/** Logs out user
+ * @return array with messages
+ */
+
+
+function logout_user($pdo){
+    $_SESSION['user_id'] = array();
+    session_destroy();
+    $feedback = [
+        'type' => 'success',
+        'message' => sprintf('%s, you were logged out successfully!', get_user_name($pdo, $_SESSION['user_id']))
+    ];
+    redirect(sprintf('/DDWT18/week2/?error_msg=%s', json_encode($feedback)));
 }

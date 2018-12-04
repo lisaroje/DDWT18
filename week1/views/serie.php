@@ -37,17 +37,18 @@
                         <tbody>
                         <tr>
                             <th scope="row">Creators</th>
-                            <td><?= $creators ?></td>
+                            <td><?= $serie_info_exp['creator'] ?></td>
                         </tr>
                         <tr>
                             <th scope="row">Number of seasons</th>
-                            <td><?= $nbr_seasons ?></td>
+                            <td><?= $serie_info_exp['seasons'] ?>></td>
                         </tr>
                         </tbody>
                     </table>
                     <div class="row">
                         <div class="col-sm-2">
-                            <a href="/DDWT18/week1/edit/" role="button" class="btn btn-warning">Edit</a>
+                            <a href="/DDWT18/week1/edit/?serie_id=<?= $serie_id ?>"
+                               role="button" class="btn btn-warning">Edit</a>
                         </div>
                         <div class="col-sm-2">
                             <form action="/DDWT18/week1/remove/" method="POST">

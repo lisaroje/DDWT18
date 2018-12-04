@@ -34,9 +34,37 @@
                     <h5><?= $page_subtitle ?></h5>
                     <p><?= $page_content ?></p>
                     <!-- Put your form here -->
-                </div>
-
-                <!-- Right column -->
+                    value="<?php if (isset($series_info)){echo $series_info['name'];} ?>"
+                    <form <?=$form_action?> method="POST">
+                        <div class="form-group row">
+                            <label for="inputName" class="col-sm-2 col-form-label">Name</label>
+                            <div class="col-sm-10">
+                                <input type="text" class="form-control" id="inputName" value="<?=$serie_info_exp['name']?>" name="Name" required>
+                            </div>
+                            <label for="inputCreator" class="col-sm-2 col-form-label">Creator</label>
+                            <div class="col-sm-10">
+                                <input type="text" class="form-control" id="inputCreator" value="<?=$serie_info_exp['creator']?>" name="Creator" required>
+                            </div>
+                            <label for="inputSeasons" class="col-sm-2 col-form-label">Seasons</label>
+                            <div class="col-sm-10">
+                                <input type="number" class="form-control" id="inputSeasons" value="<?=$serie_info_exp['seasons']?>" name="Seasons" required>
+                            </div>
+                            <label for="inputAbstract" class="col-sm-2 col-form-label">Abstract</label>
+                            <div class="col-sm-10">
+                                <textarea class="form-control" id="inputAbstract" value ="<?=$serie_info_exp['seasons']?>" name="Abstract"> required </textarea>
+                            </div>
+                            <div class="col-sm-10">
+                                <button type="submit" class="btn btn-primary"><?=$submit_btn?></button>
+                            </div>
+                            <div class="col-sm-2">
+                            <form action="/DDWT18/week1/remove/" method="POST">
+                                <input type="hidden" value="<?= $serie_id ?>" name="serie_id">
+                                <button type="submit" class="btn btn-danger">Remove</button>
+                             </form>
+                            </div>
+                        </div>
+                    </form>
+                <!-- Right co1lumn -->
                 <div class="col-md-4">
 
                     <?php include $right_column ?>

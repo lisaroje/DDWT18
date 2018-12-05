@@ -258,3 +258,38 @@ function redirect($location){
     header(sprintf('Location: %s', $location));
     die();
 }
+
+/**
+ * Set credentials for HTTP Authentication
+ * @param string $username and string $password
+ * @return array $username and array $password
+ */
+
+function set_cred($username, $password){
+    return [
+        'username' => $username,
+        'password' => $password
+    ];
+}
+
+/**
+ * Checking credentials for access to the server
+ * @param array $cred
+ * @return Boolean values
+ */
+function check_cred($cred){
+    if(!isset($_SERVER['PHP_AUTH_USER'])){
+        return False;
+    }
+    else {
+        if($_SERVER['PHP_AUTH_USER'] != $cred['username']){
+          return False;
+        }
+        elseif ($_SERVER['PHP_AUTH_PW'] != $cred['password']){
+            return False;
+        }
+        else {
+            return True;
+        }
+    }
+}
